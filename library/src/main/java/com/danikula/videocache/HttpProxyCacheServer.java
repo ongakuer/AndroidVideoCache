@@ -3,11 +3,13 @@ package com.danikula.videocache;
 import android.content.Context;
 import android.os.SystemClock;
 import android.util.Log;
+
 import com.danikula.videocache.file.DiskUsage;
 import com.danikula.videocache.file.FileNameGenerator;
 import com.danikula.videocache.file.Md5FileNameGenerator;
 import com.danikula.videocache.file.TotalCountLruDiskUsage;
 import com.danikula.videocache.file.TotalSizeLruDiskUsage;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -24,12 +26,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static com.danikula.videocache.Preconditions.checkAllNotNull;
 import static com.danikula.videocache.Preconditions.checkNotNull;
 import static com.danikula.videocache.ProxyCacheUtils.LOG_TAG;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Simple lightweight proxy server with file caching support that handles HTTP requests.
@@ -89,34 +91,24 @@ public class HttpProxyCacheServer {
 
     private void makeSureServerWorks() {
         int maxPingAttempts = 3;
-        int delay = 200;
+        int delay = 300;
         int pingAttempts = 0;
         while (pingAttempts < maxPingAttempts) {
             try {
                 Future<Boolean> pingFuture = socketProcessor.submit(new PingCallable());
-                pinged = pingFuture.get(delay, TimeUnit.MILLISECONDS);
-                if (pinged) {
+                this.pinged = pingFuture.get(delay, MILLISECONDS);
+                if (this.pinged) {
                     return;
                 }
                 SystemClock.sleep(delay);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                Log.e(LOG_TAG, "Error pinging server [attempt: "
-                        + pingAttempts
-                        + ", timeout: "
-                        + delay
-                        + "]. ", e);
+                Log.e(LOG_TAG, "Error pinging server [attempt: " + pingAttempts + ", timeout: " + delay + "]. ", e);
             }
-
-            delay *= 2;
+           
             pingAttempts++;
+            delay *= 2;
         }
-
-        Log.e(LOG_TAG, "Shutdown server… Error pinging server [attempt: "
-                + pingAttempts
-                + ", timeout: "
-                + delay
-                + "]. "
-                +
+        Log.e(LOG_TAG, "Shutdown server… Error pinging server [attempt: " + pingAttempts + ", timeout: " + delay + "]. " +
                 "If you see this message, please, email me danikula@gmail.com");
         shutdown();
     }
@@ -142,8 +134,7 @@ public class HttpProxyCacheServer {
 
     public String getProxyUrl(String url) {
         if (!pinged) {
-            Log.e(LOG_TAG,
-                    "Proxy server isn't pinged. Caching doesn't work. If you see this message, please, email me danikula@gmail.com");
+            Log.e(LOG_TAG, "Proxy server isn't pinged. Caching doesn't work. If you see this message, please, email me danikula@gmail.com");
         }
         return pinged ? appendToProxyUrl(url) : url;
     }
@@ -321,7 +312,8 @@ public class HttpProxyCacheServer {
             this.startSignal = startSignal;
         }
 
-        @Override public void run() {
+        @Override
+        public void run() {
             startSignal.countDown();
             waitForRequest();
         }
@@ -335,14 +327,16 @@ public class HttpProxyCacheServer {
             this.socket = socket;
         }
 
-        @Override public void run() {
+        @Override
+        public void run() {
             processSocket(socket);
         }
     }
 
     private class PingCallable implements Callable<Boolean> {
 
-        @Override public Boolean call() throws Exception {
+        @Override
+        public Boolean call() throws Exception {
             return pingServer();
         }
     }
@@ -368,8 +362,7 @@ public class HttpProxyCacheServer {
          * Overrides default cache folder to be used for caching files.
          * <p/>
          * By default AndroidVideoCache uses
-         * '/Android/data/[app_package_name]/cache/video-cache/' if card is mounted and app has
-         * appropriate permission
+         * '/Android/data/[app_package_name]/cache/video-cache/' if card is mounted and app has appropriate permission
          * or 'video-cache' subdirectory in default application's cache directory otherwise.
          * <p/>
          * <b>Note</b> directory must be used <b>only</b> for AndroidVideoCache files.
@@ -435,5 +428,6 @@ public class HttpProxyCacheServer {
         private Config buildConfig() {
             return new Config(cacheRoot, fileNameGenerator, diskUsage);
         }
+
     }
 }
